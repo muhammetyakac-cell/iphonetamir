@@ -2,14 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { 
   Phone, MapPin, Clock, ShieldCheck, Battery, Smartphone, 
   CheckCircle2, ArrowRight, MessageCircle, Menu, X, Instagram, 
-  ChevronDown, Loader2, Lock, LogOut, Trash2, Calendar, Table, RefreshCw, AlertCircle
+  ChevronDown, Loader2, Lock, LogOut, Trash2, Calendar, Table, RefreshCw, AlertCircle, Wrench, CreditCard
 } from 'lucide-react';
 
 // --- AYAR: Google Apps Script URL'niz ---
 const SHEET_URL = "https://script.google.com/macros/s/AKfycbztX6gRkelRy6MrZ29J_LnM1re01jR1hYMF3sqPM65MBrrG6mR5O3PSnjm2fmU6q5s7/exec"; 
 
 const App = () => {
-  const [view, setView] = useState('user'); // 'user', 'login', 'admin'
+  const [view, setView] = useState('user'); 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [selectedModel, setSelectedModel] = useState('');
   const [selectedService, setSelectedService] = useState('');
@@ -19,12 +19,25 @@ const App = () => {
   const [requests, setRequests] = useState([]);
   const [error, setError] = useState(null);
 
-  // Admin Bilgileri
-  const ADMIN_USERNAME = 'lapella';
-  const ADMIN_PASSWORD = 'Mami@@@2812';
+  /**
+   * GÜVENLİK GÜNCELLEMESİ: 
+   * Ortam değişkenlerine erişim yöntemi, uyumluluk için güvenli hale getirildi.
+   */
+  const getEnv = (key, fallback) => {
+    try {
+      // @ts-ignore
+      return import.meta.env[key] || fallback;
+    } catch (e) {
+      return fallback;
+    }
+  };
+
+const ADMIN_USERNAME = import.meta.env.VITE_ADMIN_USER;
+const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASS;
+
+  
   const [adminCreds, setAdminCreds] = useState({ username: '', password: '' });
 
-  // Form Verileri State'i
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -32,11 +45,9 @@ const App = () => {
     address: ''
   });
 
-  // İletişim Bilgileri
   const phoneNumber = "0532 427 28 12";
   const whatsappNumber = "905324272812";
 
-  // Fiyat Listesi
   const prices = {
     "iPhone X": { screen: 2850, battery: 1350 }, "iPhone XR": { screen: 2650, battery: 1350 },
     "iPhone XS": { screen: 2950, battery: 1400 }, "iPhone XS Max": { screen: 3450, battery: 1450 },
@@ -60,21 +71,20 @@ const App = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Excel'den verileri çeken ana fonksiyon
   const fetchRequests = async () => {
     if (!SHEET_URL) return;
     setIsLoading(true);
     setError(null);
     try {
       const response = await fetch(SHEET_URL);
-      if (!response.ok) throw new Error("Ağ hatası");
+      if (!response.ok) throw new Error("Excel bağlantı hatası");
       const data = await response.json();
       if (Array.isArray(data)) {
         setRequests(data.reverse());
       }
     } catch (err) {
       console.error("Fetch Hatası:", err);
-      setError("Excel bağlantısı sağlanamadı. Lütfen Apps Script ayarlarınızı kontrol edin.");
+      setError("Veriler yüklenemedi. Lütfen interneti kontrol edin.");
     } finally {
       setIsLoading(false);
     }
@@ -96,9 +106,12 @@ const App = () => {
     ? (selectedService === 'Ekran Değişimi' ? prices[selectedModel].screen : prices[selectedModel].battery)
     : null;
 
-  // Başvuru Gönderme (Excel + WhatsApp)
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!selectedModel || !selectedService) {
+      alert("Lütfen Model ve İşlem seçiniz.");
+      return;
+    }
     setIsLoading(true);
 
     const payload = {
@@ -106,15 +119,14 @@ const App = () => {
       phone: formData.phone,
       area: formData.area,
       address: formData.address,
-      model: selectedModel || "Belirtilmedi",
-      service: selectedService || "Belirtilmedi",
+      model: selectedModel,
+      service: selectedService,
       price: currentPrice ? currentPrice.toLocaleString('tr-TR') + ' ₺' : "Fiyat Sorunuz"
     };
 
     const message = `🛠️ *YENİ SERVİS TALEBİ* 🛠️\n\n👤 *Müşteri:* ${payload.name}\n📞 *Tel:* ${payload.phone}\n📍 *Bölge:* ${payload.area}\n🏠 *Adres:* ${payload.address}\n\n📱 *Cihaz:* ${payload.model}\n🔧 *İşlem:* ${payload.service}\n💰 *Fiyat:* ${payload.price}`;
 
     try {
-      // 1. Arka planda Excel'e gönder (no-cors)
       if (SHEET_URL) {
         fetch(SHEET_URL, {
           method: 'POST',
@@ -124,7 +136,6 @@ const App = () => {
         }).catch(e => console.warn("Sessiz gönderim:", e));
       }
       
-      // 2. WhatsApp'ı hemen aç
       setTimeout(() => {
         window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, '_blank');
         setFormStep(2);
@@ -143,11 +154,9 @@ const App = () => {
     if (adminCreds.username === ADMIN_USERNAME && adminCreds.password === ADMIN_PASSWORD) {
       setView('admin');
     } else {
-      alert("Hatalı giriş bilgileri!");
+      alert("Giriş bilgileri yanlış!");
     }
   };
-
-  // --- RENDER MODLARI ---
 
   if (view === 'login') {
     return (
@@ -158,8 +167,8 @@ const App = () => {
             <h2 className="text-2xl font-black uppercase tracking-tight text-slate-800">Yönetici Girişi</h2>
           </div>
           <form onSubmit={handleAdminLogin} className="space-y-4">
-            <input required type="text" placeholder="Kullanıcı" className="w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 border border-slate-200" value={adminCreds.username} onChange={e => setAdminCreds({...adminCreds, username: e.target.value})} />
-            <input required type="password" placeholder="Şifre" className="w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 border border-slate-200" value={adminCreds.password} onChange={e => setAdminCreds({...adminCreds, password: e.target.value})} />
+            <input required type="text" placeholder="Kullanıcı" className="w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 border border-slate-200 font-bold" value={adminCreds.username} onChange={e => setAdminCreds({...adminCreds, username: e.target.value})} />
+            <input required type="password" placeholder="Şifre" className="w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 border border-slate-200 font-bold" value={adminCreds.password} onChange={e => setAdminCreds({...adminCreds, password: e.target.value})} />
             <button className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-blue-100">Giriş Yap</button>
             <button type="button" onClick={() => setView('user')} className="w-full text-slate-400 font-bold text-sm">Geri Dön</button>
           </form>
@@ -170,11 +179,11 @@ const App = () => {
 
   if (view === 'admin') {
     return (
-      <div className="min-h-screen bg-slate-50 font-sans">
+      <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
         <nav className="bg-white border-b px-6 py-4 flex justify-between items-center sticky top-0 z-50 shadow-sm">
           <div className="flex items-center gap-2">
             <div className="bg-blue-600 p-2 rounded-lg text-white"><Smartphone size={20}/></div>
-            <span className="font-black text-slate-800 uppercase tracking-widest text-sm text-blue-600">YÖNETİCİ PANELİ</span>
+            <span className="font-black text-slate-800 uppercase tracking-widest text-sm">YÖNETİCİ PANELİ</span>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={fetchRequests} className="p-2 text-blue-600 hover:bg-blue-50 rounded-xl transition"><RefreshCw size={20} className={isLoading ? 'animate-spin' : ''}/></button>
@@ -182,56 +191,32 @@ const App = () => {
           </div>
         </nav>
         <div className="container mx-auto p-6 max-w-5xl">
-          <h2 className="text-3xl font-black mb-8 text-slate-900 tracking-tighter">Müşteri Talepleri ({requests.length})</h2>
-          
-          {error && (
-            <div className="bg-amber-50 border border-amber-200 text-amber-700 p-6 rounded-3xl mb-8 flex flex-col items-center gap-3">
-              <AlertCircle className="text-amber-500" />
-              <p className="font-bold text-center">{error}</p>
-              <p className="text-xs opacity-80 text-center uppercase tracking-widest">
-                İPUCU: APPS SCRIPT {' > '} DAĞIT {' > '} HERKES SEÇENEĞİNİ KONTROL EDİN
-              </p>
-              <button onClick={fetchRequests} className="bg-amber-100 px-6 py-2 rounded-full font-bold hover:bg-amber-200 transition">Yenile</button>
-            </div>
-          )}
-
+          <h2 className="text-3xl font-black mb-8 tracking-tighter">Müşteri Talepleri ({requests.length})</h2>
+          {error && <div className="bg-red-50 text-red-700 p-4 rounded-2xl mb-6 font-bold text-sm text-center">{error}</div>}
           <div className="grid gap-4">
-            {isLoading && requests.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 gap-4">
-                <Loader2 className="animate-spin text-blue-600" size={40} />
-                <p className="text-slate-400 font-medium">Excel'den veriler çekiliyor...</p>
-              </div>
-            ) : requests.length === 0 && !error ? (
-              <div className="bg-white p-20 rounded-[40px] text-center border border-slate-200 shadow-sm">
-                 <p className="text-slate-400 font-medium italic">Kayıtlı veri bulunamadı.</p>
-              </div>
-            ) : (
-              requests.map((req, idx) => (
-                <div key={idx} className="bg-white p-6 rounded-[32px] border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between gap-6 hover:shadow-md transition">
-                  <div className="space-y-2 flex-1">
-                    <div className="flex items-center gap-3">
-                      <span className="bg-blue-600 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase">YENİ</span>
-                      <span className="text-slate-400 text-xs font-medium">{req.date ? new Date(req.date).toLocaleString('tr-TR') : 'Bugün'}</span>
-                    </div>
-                    <h4 className="font-black text-xl text-slate-900">{req.name}</h4>
-                    <p className="text-blue-600 font-bold flex items-center gap-2 text-lg hover:underline"><Phone size={16}/> {req.phone}</p>
-                    <p className="text-slate-500 text-sm font-medium">{req.area} - {req.address}</p>
+            {requests.map((req, idx) => (
+              <div key={idx} className="bg-white p-6 rounded-[32px] border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between gap-6 hover:shadow-md transition">
+                <div className="space-y-2 flex-1">
+                  <div className="flex items-center gap-3">
+                    <span className="bg-blue-600 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase">YENİ</span>
+                    <span className="text-slate-400 text-xs font-bold">{req.date ? new Date(req.date).toLocaleString('tr-TR') : 'Bugün'}</span>
                   </div>
-                  <div className="bg-slate-900 text-white p-6 rounded-3xl md:w-64 flex flex-col justify-center text-center border border-slate-800">
-                    <p className="text-[10px] text-blue-400 font-bold uppercase mb-1 tracking-widest">{req.model}</p>
-                    <p className="text-sm">{req.service}</p>
-                    <p className="font-black mt-2 text-2xl">{req.price}</p>
-                  </div>
+                  <h4 className="font-black text-xl text-slate-900">{req.name}</h4>
+                  <p className="text-blue-600 font-bold flex items-center gap-2 underline underline-offset-4"><Phone size={14}/> {req.phone}</p>
+                  <p className="text-slate-500 text-sm font-medium leading-relaxed">{req.area} - {req.address}</p>
                 </div>
-              ))
-            )}
+                <div className="bg-slate-900 text-white p-6 rounded-3xl md:w-64 flex flex-col justify-center text-center border border-slate-800">
+                  <p className="text-[10px] text-blue-400 font-bold uppercase mb-1 tracking-widest">{req.model}</p>
+                  <p className="text-sm font-medium">{req.service}</p>
+                  <p className="font-black mt-2 text-2xl text-white tracking-tighter">{req.price}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
     );
   }
-
-  // --- ANA KULLANICI ARAYÜZÜ ---
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-blue-100">
@@ -243,18 +228,11 @@ const App = () => {
             </div>
             <span className="text-xl font-bold tracking-tight text-blue-900 uppercase">iZMiR iPHONE <span className="text-blue-600 font-black">KAPINDA</span></span>
           </div>
-
           <div className="hidden md:flex items-center gap-8 font-medium">
             <button onClick={() => scrollToSection('services')} className="hover:text-blue-600 transition font-bold">Hizmetler</button>
             <button onClick={() => scrollToSection('pricing')} className="hover:text-blue-600 transition font-bold">Fiyatlar</button>
-            <button 
-              onClick={() => scrollToSection('appointment')}
-              className="bg-blue-600 text-white px-6 py-2 rounded-full hover:bg-blue-700 transition shadow-lg shadow-blue-200"
-            >
-              Randevu Al
-            </button>
+            <button onClick={() => scrollToSection('appointment')} className="bg-blue-600 text-white px-6 py-2 rounded-full hover:bg-blue-700 transition shadow-lg shadow-blue-200">Randevu Al</button>
           </div>
-
           <button className="md:hidden p-2" onClick={() => setIsMenuOpen(!isMenuOpen)}>{isMenuOpen ? <X /> : <Menu />}</button>
         </div>
         {isMenuOpen && (
@@ -265,34 +243,16 @@ const App = () => {
         )}
       </nav>
 
-      {/* Hero Section */}
       <section id="home" className="relative pt-32 pb-20 md:pt-48 md:pb-32 overflow-hidden">
         <div className="absolute top-0 right-0 w-1/2 h-full bg-blue-50 -z-10 rounded-l-[100px] hidden md:block"></div>
         <div className="container mx-auto px-4 flex flex-col md:flex-row items-center">
           <div className="md:w-1/2 space-y-6 text-center md:text-left">
-            <div className="inline-block bg-blue-100 text-blue-700 px-4 py-1 rounded-full text-sm font-bold uppercase tracking-wider">
-              İzmir'in Tamamına VIP Mobil Hizmet
-            </div>
-            <h1 className="text-4xl md:text-6xl font-extrabold text-slate-900 leading-tight tracking-tighter">
-              iPhone'unuz Bozuldu mu? <br />
-              <span className="text-blue-600">Biz Gelip Alalım.</span>
-            </h1>
-            <p className="text-lg text-slate-600 max-w-lg mx-auto md:mx-0 font-medium leading-relaxed">
-              Servis servis gezmenize gerek yok. Kapınızdan alıyoruz, onarıyoruz ve aynı gün teslim ediyoruz. Üstelik parça garantisiyle!
-            </p>
+            <div className="inline-block bg-blue-100 text-blue-700 px-4 py-1 rounded-full text-sm font-bold uppercase tracking-wider">İzmir'in Tamamına VIP Mobil Hizmet</div>
+            <h1 className="text-4xl md:text-6xl font-extrabold text-slate-900 leading-tight tracking-tighter">iPhone'unuz Bozuldu mu? <br /><span className="text-blue-600">Biz Gelip Alalım.</span></h1>
+            <p className="text-lg text-slate-600 max-w-lg mx-auto md:mx-0 font-medium leading-relaxed">Servis servis gezmenize gerek yok. Kapınızdan alıyoruz, onarıyoruz ve aynı gün teslim ediyoruz. Üstelik parça garantisiyle!</p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start pt-4">
-              <button 
-                onClick={() => scrollToSection('appointment')}
-                className="bg-blue-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-blue-700 transition shadow-xl shadow-blue-200 flex items-center justify-center gap-2"
-              >
-                Hemen Randevu Oluştur <ArrowRight className="w-5 h-5" />
-              </button>
-              <a 
-                href={`https://wa.me/${whatsappNumber}`} 
-                className="bg-green-500 text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-green-600 transition shadow-xl flex items-center justify-center gap-2"
-              >
-                <MessageCircle className="w-5 h-5" /> WhatsApp Destek
-              </a>
+              <button onClick={() => scrollToSection('appointment')} className="bg-blue-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-blue-700 transition shadow-xl shadow-blue-200 flex items-center justify-center gap-2">Hemen Randevu Oluştur <ArrowRight className="w-5 h-5" /></button>
+              <a href={`https://wa.me/${whatsappNumber}`} className="bg-green-500 text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-green-600 transition shadow-xl flex items-center justify-center gap-2"><MessageCircle className="w-5 h-5" /> WhatsApp Destek</a>
             </div>
           </div>
           <div className="md:w-1/2 mt-12 md:mt-0 relative flex justify-center">
@@ -305,13 +265,8 @@ const App = () => {
                   </div>
                 </div>
                 <div className="space-y-4">
-                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="w-1/3 h-full bg-blue-500 animate-pulse"></div>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                      <span className="text-slate-500">Kurye Yolda</span>
-                      <span className="font-bold">14:20 Varış</span>
-                  </div>
+                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden"><div className="w-1/3 h-full bg-blue-500 animate-pulse"></div></div>
+                  <div className="flex justify-between text-sm"><span className="text-slate-500">Kurye Yolda</span><span className="font-bold">14:20 Varış</span></div>
                 </div>
              </div>
              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 bg-blue-400 rounded-full blur-[100px] opacity-20 -z-10"></div>
@@ -319,7 +274,6 @@ const App = () => {
         </div>
       </section>
 
-      {/* Services */}
       <section id="services" className="py-20 bg-white">
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-3xl md:text-4xl font-black mb-16 uppercase tracking-widest text-slate-900">Hizmetlerimiz</h2>
@@ -343,7 +297,6 @@ const App = () => {
         </div>
       </section>
 
-      {/* Pricing */}
       <section id="pricing" className="py-20 bg-slate-50">
         <div className="container mx-auto px-4 max-w-4xl text-center">
           <div className="bg-white p-8 rounded-[50px] border border-slate-100 grid md:grid-cols-2 gap-10 items-center">
@@ -361,13 +314,12 @@ const App = () => {
             </div>
             <div className="bg-blue-600 rounded-[40px] p-10 text-white shadow-xl">
                <p className="text-blue-200 text-xs font-bold uppercase mb-2">Net Ücret (Kurye Dahil)</p>
-               <div className="text-5xl font-black">{currentPrice ? `${currentPrice.toLocaleString('tr-TR')} ₺` : '---'}</div>
+               <div className="text-5xl font-black tracking-tighter">{currentPrice ? `${currentPrice.toLocaleString('tr-TR')} ₺` : '---'}</div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Appointment Form */}
       <section id="appointment" className="py-20 bg-white">
         <div className="container mx-auto px-4 max-w-2xl">
             <div className="bg-white p-8 md:p-12 rounded-[50px] shadow-2xl border border-blue-50">
@@ -375,13 +327,57 @@ const App = () => {
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <h2 className="text-3xl font-black text-center mb-8 uppercase text-slate-900 tracking-tighter">Hemen Başvur</h2>
                         <div className="grid md:grid-cols-2 gap-4">
-                            <input required type="text" placeholder="Adınız Soyadınız" className="w-full p-5 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 border-none shadow-inner font-bold" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
-                            <input required type="tel" placeholder="05XX XXX XX XX" className="w-full p-5 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 border-none shadow-inner font-bold" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Ad Soyad</label>
+                                <input required type="text" placeholder="Örn: Ahmet Yılmaz" className="w-full p-5 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 border-none shadow-inner font-bold" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Telefon</label>
+                                <input required type="tel" placeholder="05XX XXX XX XX" className="w-full p-5 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 border-none shadow-inner font-bold" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
+                            </div>
                         </div>
-                        <select className="w-full p-5 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 border-none shadow-inner font-bold" value={formData.area} onChange={(e) => setFormData({...formData, area: e.target.value})}>
-                            {['Buca', 'Bornova', 'Karşıyaka', 'Konak', 'Balçova', 'Gaziemir', 'Bayraklı', 'Çiğli', 'Mavişehir', 'Diğer'].map(area => <option key={area} value={area}>{area}</option>)}
-                        </select>
-                        <textarea required placeholder="Cihazın teslim alınacağı tam adresiniz..." className="w-full p-5 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 border-none h-24 shadow-inner font-bold" value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})}></textarea>
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Bölge</label>
+                            <select className="w-full p-5 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 border-none shadow-inner font-bold" value={formData.area} onChange={(e) => setFormData({...formData, area: e.target.value})}>
+                                {['Buca', 'Bornova', 'Karşıyaka', 'Konak', 'Balçova', 'Gaziemir', 'Bayraklı', 'Çiğli', 'Mavişehir', 'Diğer'].map(area => <option key={area} value={area}>{area}</option>)}
+                            </select>
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tam Adres</label>
+                            <textarea required placeholder="Cihazın teslim alınacağı tam adresiniz..." className="w-full p-5 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 border-none h-24 shadow-inner font-bold" value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})}></textarea>
+                        </div>
+
+                        <div className="bg-blue-50/50 p-6 rounded-[32px] space-y-4 border border-blue-100">
+                          <p className="text-xs font-black text-blue-600 uppercase tracking-widest text-center mb-2">Onarım Bilgileri</p>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Cihaz Modeli</label>
+                                <div className="relative">
+                                  <select required className="w-full p-4 bg-white rounded-xl outline-none focus:ring-2 focus:ring-blue-500 border-none shadow-sm font-bold appearance-none" value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)}>
+                                      <option value="">Seçiniz...</option>
+                                      {Object.keys(prices).map(m => <option key={m} value={m}>{m}</option>)}
+                                  </select>
+                                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
+                                </div>
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Hizmet Türü</label>
+                                <div className="relative">
+                                  <select required className="w-full p-4 bg-white rounded-xl outline-none focus:ring-2 focus:ring-blue-500 border-none shadow-sm font-bold appearance-none" value={selectedService} onChange={(e) => setSelectedService(e.target.value)}>
+                                      <option value="">Seçiniz...</option>
+                                      <option value="Ekran Değişimi">Ekran Değişimi</option>
+                                      <option value="Batarya Değişimi">Batarya Değişimi</option>
+                                  </select>
+                                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
+                                </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between bg-white p-4 rounded-2xl shadow-sm border border-blue-50">
+                            <div className="flex items-center gap-2 text-slate-500"><CreditCard size={18} className="text-blue-600"/><span className="text-sm font-bold">Tahmini Ücret</span></div>
+                            <div className="text-xl font-black text-blue-600 tracking-tighter">{currentPrice ? `${currentPrice.toLocaleString('tr-TR')} ₺` : '---'}</div>
+                          </div>
+                        </div>
+                        
                         <button type="submit" disabled={isLoading} className="w-full bg-blue-600 text-white py-6 rounded-3xl font-black text-xl hover:bg-blue-700 transition flex items-center justify-center gap-3 shadow-xl shadow-blue-200">
                           {isLoading ? <Loader2 className="animate-spin" /> : "Talebi WhatsApp'tan Gönder"}
                         </button>
@@ -398,7 +394,6 @@ const App = () => {
         </div>
       </section>
 
-      {/* Footer */}
       <footer className="bg-slate-950 text-white pt-20 pb-10 text-center">
         <div className="container mx-auto px-4">
             <p className="font-black text-xl mb-4 uppercase tracking-tighter">İzmir iPhone Kapında</p>
@@ -411,7 +406,6 @@ const App = () => {
         </div>
       </footer>
 
-      {/* Floating Buttons */}
       <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-40">
           <a href={`tel:${phoneNumber.replace(/\s/g, '')}`} className="bg-blue-600 text-white p-4 rounded-full shadow-2xl hover:scale-110 transition flex items-center justify-center border-4 border-white"><Phone size={24} /></a>
           <a href={`https://wa.me/${whatsappNumber}`} className="bg-green-500 text-white p-4 rounded-full shadow-2xl hover:scale-110 transition flex items-center justify-center border-4 border-white"><MessageCircle size={24} /></a>
