@@ -6,6 +6,7 @@ import {
   RefreshCw, AlertCircle, Wrench, CreditCard, Star, Search, Info,
   TrendingUp, HardDrive, Zap, Map, BookOpen, AlertTriangle, Droplets, Share2
 } from 'lucide-react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 
 /**
  * --- AYARLAR ---
@@ -623,6 +624,7 @@ const App = () => {
         .animate-blob { animation: blob 7s infinite; }
         .animation-delay-2000 { animation-delay: 2s; }
       `}} />
+      <SpeedInsights />
     </div>
   );
 };
