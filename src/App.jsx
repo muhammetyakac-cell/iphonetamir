@@ -7,6 +7,7 @@ import {
   TrendingUp, HardDrive, Zap, Map, BookOpen, AlertTriangle, Droplets, Share2
 } from 'lucide-react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
+import { Analytics } from '@vercel/analytics/react';
 
 /**
  * --- AYARLAR ---
@@ -625,6 +626,7 @@ const App = () => {
         .animation-delay-2000 { animation-delay: 2s; }
       `}} />
       <SpeedInsights />
+      <Analytics />
     </div>
   );
 };
